@@ -1,0 +1,48 @@
+%!PS
+%%Time-stamp: <92/09/24 23:28:52 john>
+ 
+/petalouterhalfseg {
+  0 1 moveto
+  0 .5
+  36 sin 36 cos
+  2 copy .3 mul exch .3 mul exch curveto
+} bind def
+ 
+/barhalfseg {
+  36 sin .7 mul 36 cos .7 mul moveto
+  34 sin 1.2 mul 34 cos 1.2 mul lineto
+  36 sin 1.2 mul 36 cos 1.2 mul lineto
+} bind def
+ 
+/blobhalfseg {
+  1 4 scale
+  0 .1 .05 -90 90 arc stroke
+  1 1 4 div scale
+} bind def
+ 
+/petalinnerhalfseg {
+  0 .1 moveto
+  0 .2 36 sin .1 mul 36 cos .1 mul
+  2 copy 2 mul exch 2 mul exch curveto
+} bind def
+ 
+/allsegs {
+  5 {
+    dup exec
+    -1 1 scale
+    dup exec
+    -1 1 scale
+    72 rotate
+  } repeat
+  pop
+} bind def
+ 
+/flower {
+  /petalouterhalfseg load allsegs 
+  /petalinnerhalfseg load allsegs stroke
+  /barhalfseg load allsegs stroke
+  /blobhalfseg load allsegs stroke
+} bind def
+
+flower
+showpage

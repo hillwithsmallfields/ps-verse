@@ -1,0 +1,25 @@
+/fountain {
+  gsave
+    0 setlinewidth
+    newpath
+    0 1 100
+    {
+      pop
+      [ rand 15 and 64 div 0.0 add rand 15 and 64 div 0.05 add ]
+      0 setdash
+      gsave
+	  rand 16#ffff and 32768 div 1 sub
+	  rand 16#ffff and 65536 div
+	scale
+	0 0 moveto
+	.5 1 .5 1 1 -1 curveto
+	 gsave
+	   3 3 idtransform pop setlinewidth % [ ] 0 setdash 
+	   1 setgray stroke
+	 grestore
+	stroke
+      grestore
+    } for
+  grestore
+} bind def
+
