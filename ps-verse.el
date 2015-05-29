@@ -1,23 +1,30 @@
 ;;; Program to format a buffer as verse, for PostScript
-;;; Time-stamp: <2015-05-29 08:03:50 jcgs>
+;;; Time-stamp: <2015-05-29 08:19:56 jcgs>
 
-;; previous work 1992-11-11
+;; Copyright (C) 2007, 2009, 2015  John Sturdy
 
-(provide 'ps-verse)
+;; Author: John Sturdy <jcgs@hosea>
+;; Keywords: multimedia
+
+;; This file is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation; either version 3, or (at your option)
+;; any later version.
+
+;; This file is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with GNU Emacs; see the file COPYING.  If not, write to
+;; the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
+
+;;; Commentary:
+;;; Program to format a buffer as verse, for PostScript
 ;;; Simple troff-like text formatting, for non-filled non-justified text
 ;;; such as verses and short notices.
-
-(defvar verse-procset-file 
-  (expand-file-name "~/open-projects/ps-verse/ps-verse-el.pro")
-  "The file containing the procset.")
-
-(defun member (item list)
-  "If ITEM occurs in LIST, return the tail of LIST starting from ITEM."
-  (if (null list)
-      nil
-    (if (equal item (car list))
-        list
-      (member item (cdr list)))))
 
 ;^;(mapcar (function (lambda (var)
 ;^;                 (makunbound var)
@@ -77,7 +84,7 @@ by any leading spaces and the current indent scaling, onto."
             (message "Reservation: bottom %d (current place %d) width %d"
                      (if verse-reservation-bottom verse-reservation-bottom 0)
                      verse-current-line-place
-                     verse-reservation-width) 
+                     verse-reservation-width)
             (sit-for 2)))
       (if (and verse-reservation-bottom
                (> verse-current-line-place verse-reservation-bottom))
@@ -90,32 +97,33 @@ by any leading spaces and the current indent scaling, onto."
             (- verse-current-line-place verse-line-separation)))))
 
 (defun verse-set-output-font (fontname fontsize)
-  "Set the output font and size."
-  (if (or (not (string= fontname verse-font))
-          (not (= fontsize verse-font-size)))
-      (progn
-        (setq verse-font fontname
-              verse-font-size fontsize)
-        (if (not (member verse-font verse-loaded-fonts))
-            (save-window-excursion      ; load the font
-              (set-buffer standard-output)
-              (save-excursion
-                (goto-char (point-min))
-                (search-forward verse-font-area-marker)
-                (insert "\n\n%%BeginFont " verse-font "\n")
+  "Set the output font to FONTNAME and size to FONTSIZE."
+  (when (or (not (string= fontname verse-font))
+	    (not (= fontsize verse-font-size)))
+    (setq verse-font fontname
+	  verse-font-size fontsize)
+    (message "Looking for %S in %S" verse-font verse-loaded-fonts)
+    (unless (member verse-font verse-loaded-fonts)
+      (message "Loading %S" verse-font)
+      (save-window-excursion		; load the font
+	(set-buffer standard-output)
+	(save-excursion
+	  (goto-char (point-min))
+	  (search-forward verse-font-area-marker)
+	  (insert "\n\n%%BeginFont " verse-font "\n")
 
-                (let ((font-file (expand-file-name verse-font verse-font-directory)))
-                  (if (not (file-exists-p font-file))
-                      (setq font-file (concat font-file ".ps")))
-                  (insert-file font-file)
-                  (goto-char (mark))
-                  )
-                (insert "\n%%EndFont\n")
-                )
-              (setq verse-loaded-fonts
-                    (cons verse-font verse-loaded-fonts))))
-        (princ (format "/%s findfont %d scalefont setfont\n"
-                       verse-font verse-font-size)))))
+	  (let ((font-file (expand-file-name verse-font verse-font-directory)))
+	    (if (not (file-exists-p font-file))
+		(setq font-file (concat font-file ".ps")))
+	    (insert-file font-file)
+	    (goto-char (mark))
+	    )
+	  (insert "\n%%EndFont\n")
+	  )
+	(setq verse-loaded-fonts
+	      (cons verse-font verse-loaded-fonts))))
+    (princ (format "/%s findfont %d scalefont setfont\n"
+		   verse-font verse-font-size))))
 
 (defun verse-set-size (size)
   "Set the size for printing verse to SIZE, telling a PostScript eater on
@@ -324,8 +332,10 @@ parameters, no drawing is made."
   (setq verse-postscript-directory string))
 
 (defun verse-directive-postscript-file (string)
-  "Insert a copy of a named file of postscript in the output."
+  "Insert a copy of a named file of postscript in the output.
+Argument STRING names the file."
   (save-window-excursion
+    (message "postscript-file \"%s\" in \"%s\"" string verse-postscript-directory)
     (find-file (expand-file-name string verse-postscript-directory))
     (princ
      (buffer-string))))
@@ -350,6 +360,16 @@ without gsave and grestore."
   "Move down by the given number of points."
   (setq verse-current-line-place
         (- verse-current-line-place (car (read-from-string string)))))
+
+(defun verse-directive-column (string)
+  "Start a new column of text."
+  (setq verse-current-line-place  (- verse-page-top verse-top-margin)
+	verse-left-margin (string-to-number string)))
+
+(defun verse-directive-landscape (string)
+  "Switch to landscape layout.
+STRING is ignored."
+  (princ "\n90 rotate 0 -800 translate\n"))
 
 (defun verse-directive-reference (string)
   "Insert reference, in appropriate font."
@@ -412,6 +432,8 @@ without gsave and grestore."
     (margin . verse-directive-set-margin)
     (indent . verse-directive-set-indent)
     (page . verse-directive-new-page)
+    (column . verse-directive-column)
+    (landscape . verse-directive-landscape)
     (font-directory . verse-directive-font-directory)
     (hide-titles . verse-directive-hide-titles)
     (hide-chars . verse-directive-hide-chars)
@@ -439,22 +461,25 @@ without gsave and grestore."
   "Verse directive names and functions alist.")
 
 (defun do-verse-directive (line)
-  "Interpret the verse directive in LINE, using the postscript eater
-on the standard output. LINE begins with a dot, the directive introduction
-character."
+  "Interpret the verse directive in LINE.
+LINE begins with a dot, the directive introduction character."
   (let* ((directive-name-and-length (read-from-string line 1))
          (directive-function (cdr (assoc (car directive-name-and-length)
                                          verse-directive-alist))))
     (if (null directive-function)
-        (message "Bad directive: %s" line)
-      (apply (symbol-function directive-function)
-             (list
-              (substring line (cdr directive-name-and-length))
-             )))))
+        (message "Bad directive: %s" line )
+      (let* ((arg-start (string-match "\\S-" line (cdr directive-name-and-length)))
+	     (arg (substring line arg-start)))
+	(message "calling %S on %S" (symbol-function directive-function) arg)
+	(funcall (symbol-function directive-function)
+		 arg)))))
+
+(defconst semicolon (aref ";" 0))
 
 (defun format-verse ()
-  "Format the verse text in the current buffer into PostScript, writing
-the output to another buffer, of the same name with .ps appended.
+  "Format the verse text in the current buffer into PostScript.
+Writes the output to another buffer, of the same name with .ps
+appended.
 Lines beginning with a dot are formatting commands, other lines are
 printed with neither filling nor justification.
 Dot commands are:
@@ -468,6 +493,8 @@ Dot commands are:
   .margin WIDTH            set the left margin to WIDTH points
   .indent INDENT           set the indent per leading space to INDENT
   .page                    begin a new page
+  .landscape               switch to landscape format
+  .column X                begin a new column at X
   .font-directory DIR      say where to load fonts from
   .hide-titles NOYES       indicate whether to hide titles
   .reserve-box W H         reserve a box in the margin of size W H
@@ -482,8 +509,8 @@ Dot commands are:
   .kerning NOYES           indicate whether to kern
   .kerns KERNSTRING        set the kerning table
 You can save the results into a file by going into the output buffer (with
-C-X B <buffer-name>.ps and using M-x write-file, or send them directly to
-the printer from there with M-x print-buffer (for which lpr-switches must
+\\[switch-to-buffer] <buffer-name>.ps and using \\[write-file], or send them directly to
+the printer from there with \\[print-buffer] (for which lpr-switches must
 be set up to point to a PostScript printer)."
   (interactive)
   (setq
@@ -498,7 +525,7 @@ be set up to point to a PostScript printer)."
    hide-chars nil
 
    ;; keeping track of fonts specially loaded
-   verse-font-directory "/home/gjm11/spong/"
+   verse-font-directory "/home/jcgs/common/graphics/"
    verse-loaded-fonts nil
 
    ;; margins
@@ -538,7 +565,7 @@ be set up to point to a PostScript printer)."
 
    ;; the prologue
    verse-prologue-string (save-window-excursion
-                           (find-file verse-procset-file)
+                           (find-file "/home/jcgs/common/graphics/ps-verse-el.pro")
                            (buffer-string))
 
    )
@@ -558,7 +585,7 @@ be set up to point to a PostScript printer)."
               "save /versesave exch def\n"
               verse-font-area-marker "\n\n")
       (insert verse-prologue-string)
-      (insert 
+      (insert
               "/s /show load def\n"
               "%%EndProlog\n"
               "/" verse-font " findfont "
@@ -575,7 +602,8 @@ be set up to point to a PostScript printer)."
           (end-of-line 1)
           (setq line-end (point))
           (setq line-body (buffer-substring line-start line-end))
-          (if (not (= (string-to-char line-body) ?; ))
+	  (message "Processing %s" line-body)
+          (if (not (= (string-to-char line-body) semicolon))
                       (if (= (string-to-char line-body) ?.)
                           (do-verse-directive line-body)
                         (verse-line line-body)))
@@ -587,4 +615,15 @@ be set up to point to a PostScript printer)."
             (set-buffer standard-output)
             (basic-save-buffer)))))
 
+(defvar ps-verse-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "\C-c\C-c" 'format-verse)
+    map))
 
+(defun ps-verse-mode ()
+  "Major mode for verse."
+  (interactive)
+  (fundamental-mode)
+  (use-local-map ps-verse-mode-map))
+
+(provide 'ps-verse)
