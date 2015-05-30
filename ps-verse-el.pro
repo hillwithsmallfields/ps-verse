@@ -136,10 +136,16 @@
   grestore
 } bind def
 
+% centred show, around currentpoint
+/cs {
+  gsave
+    dup stringwidth pop -0.5 mul 0 rmoveto
+    show
+  grestore
+} bind def
+
 /w {
   stringwidth pop
 } bind def
 
 %%EndProcSet
-
-

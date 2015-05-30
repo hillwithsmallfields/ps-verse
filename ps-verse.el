@@ -1,5 +1,5 @@
 ;;; Program to format a buffer as verse, for PostScript
-;;; Time-stamp: <2015-05-29 08:19:56 jcgs>
+;;; Time-stamp: <2015-05-29 21:38:46 jcgs>
 
 ;; Copyright (C) 2007, 2009, 2015  John Sturdy
 
@@ -26,30 +26,19 @@
 ;;; Simple troff-like text formatting, for non-filled non-justified text
 ;;; such as verses and short notices.
 
-;^;(mapcar (function (lambda (var)
-;^;                 (makunbound var)
-;^;                 (make-local-variable var)))
-;^;     '(verse-font
-;^;       verse-font-size
-;^;       verse-title-font
-;^;       verse-title-font-size
-;^;       verse-page-top
-;^;       verse-line-separation
-;^;       verse-current-line-place
-;^;       verse-indentation-step
-;^;       verse-font-directory
-;^;       verse-page-number
-;^;       verse-loaded-fonts
-;^;       verse-reservation-width
-;^;       verse-reservation-bottom
-;^;       verse-box-chars
-;^;       verse-box-inwardness
-;^;       ))
-
 (setq verse-verbose nil)
+
+(defvar verse-prologue-file "~/open-projects/ps-verse/ps-verse-el.pro"
+  "The preamble.")
 
 (defvar verse-font-area-marker "% Font loading area:"
   "Marker for where to put downloaded fonts")
+
+(defvar verse-centred nil
+  "Whether we are drawing the text centred.")
+
+(defvar verse-x-centre 300
+  "The centre position, for centred text.")
 
 (defun verse-directive-title (title-string)
   "Print STRING centred as the verse title, possibly in a different size from
@@ -74,27 +63,35 @@ by any leading spaces and the current indent scaling, onto."
   (if (< verse-current-line-place 0)
       (verse-new-page ""))
 
-  (let ((line-indent (string-match "[^ ]" line-text)))
-    (if (null line-indent) (setq line-indent 0))
-    (let ((line-body (substring line-text line-indent))
-          (x-pos (+ verse-left-margin
-                    (* line-indent verse-indentation-step))))
-      (if verse-verbose
-          (progn
-            (message "Reservation: bottom %d (current place %d) width %d"
-                     (if verse-reservation-bottom verse-reservation-bottom 0)
-                     verse-current-line-place
-                     verse-reservation-width)
-            (sit-for 2)))
-      (if (and verse-reservation-bottom
-               (> verse-current-line-place verse-reservation-bottom))
-          (setq x-pos (+ x-pos verse-reservation-width)))
-      (princ (format "%d %d moveto (%s) s\n"
-                     x-pos
-                     verse-current-line-place
-                     line-body))
-      (setq verse-current-line-place
-            (- verse-current-line-place verse-line-separation)))))
+  (if verse-centred
+      (let ((line-text (buffer-substring-no-properties
+			(line-beginning-position)
+			(line-end-position))))
+	(princ (format "%d %d moveto (%s) cs\n"
+		       verse-x-centre
+		       verse-current-line-place
+		       line-body)))
+    (let ((line-indent (string-match "[^ ]" line-text)))
+      (if (null line-indent) (setq line-indent 0))
+      (let ((line-body (substring line-text line-indent))
+	    (x-pos (+ verse-left-margin
+		      (* line-indent verse-indentation-step))))
+	(if verse-verbose
+	    (progn
+	      (message "Reservation: bottom %d (current place %d) width %d"
+		       (if verse-reservation-bottom verse-reservation-bottom 0)
+		       verse-current-line-place
+		       verse-reservation-width)
+	      (sit-for 2)))
+	(if (and verse-reservation-bottom
+		 (> verse-current-line-place verse-reservation-bottom))
+	    (setq x-pos (+ x-pos verse-reservation-width)))
+	(princ (format "%d %d moveto (%s) s\n"
+		       x-pos
+		       verse-current-line-place
+		       line-body)))))
+  (setq verse-current-line-place
+	(- verse-current-line-place verse-line-separation)))
 
 (defun verse-set-output-font (fontname fontsize)
   "Set the output font to FONTNAME and size to FONTSIZE."
@@ -420,6 +417,14 @@ STRING is ignored."
   (princ string)
   (princ " flat\n"))
 
+(defun verse-centring (string)
+  "Start or stop centring, as specified by STRING."
+  (let ((n (string-to-number string)))
+    (if (zerop n)
+	(setq verse-centred nil)
+      (setq verse-centred t
+	    verse-x-centre n))))
+
 (makunbound 'verse-directive-alist)
 
 (defvar verse-directive-alist
@@ -457,6 +462,7 @@ STRING is ignored."
     (rising . verse-directive-rising)
     (cpitch . verse-directive-cpitch)
     (flat . verse-directive-flat)
+    (centre . verse-centring)
     )
   "Verse directive names and functions alist.")
 
@@ -525,7 +531,7 @@ be set up to point to a PostScript printer)."
    hide-chars nil
 
    ;; keeping track of fonts specially loaded
-   verse-font-directory "/home/jcgs/common/graphics/"
+   verse-font-directory "~/Dropbox/psfonts"
    verse-loaded-fonts nil
 
    ;; margins
@@ -565,7 +571,7 @@ be set up to point to a PostScript printer)."
 
    ;; the prologue
    verse-prologue-string (save-window-excursion
-                           (find-file "/home/jcgs/common/graphics/ps-verse-el.pro")
+                           (find-file verse-prologue-file)
                            (buffer-string))
 
    )
