@@ -18,6 +18,15 @@
 
 /ks { {kernhack} exch kshow } bind def
 
+/ksw {
+  gsave
+    nulldevice
+    0 0 moveto
+    show
+    currentpoint
+  grestore
+} bind def
+
 /reference {
   400 100 moveto
   gsave /ZapfChancery-MediumItalic findfont 15 scalefont setfont
@@ -139,8 +148,8 @@
 % centred show, around currentpoint
 /cs {
   gsave
-    dup stringwidth pop -0.5 mul 0 rmoveto
-    show
+    dup ksw pop -0.5 mul 0 rmoveto
+     {kernhack} exch kshow
   grestore
 } bind def
 
